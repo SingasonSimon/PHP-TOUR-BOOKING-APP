@@ -161,20 +161,69 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
 } // End POST handling
 
 
-// Fetch Existing Tour Data for GET request or if POST failed
+// --- Fetch Existing Tour Data for GET request or if POST failed ---
+// Only fetch if $pageError is not already set and $tour hasn't been populated by failed POST
 if ($pageError === null && ($_SERVER["REQUEST_METHOD"] != "POST" || !empty($errors))) {
-    if ($tour === null) { // Only fetch if $tour not populated by failed POST
+    // If $tour is already populated (from failed POST), skip fetch
+    if ($tour === null) {
         $conn = new mysqli(DB_HOST, DB_USER, DB_PASS, DB_NAME);
-        if ($conn->connect_error) { $pageError = "DB connection failed: " . $conn->connect_error; error_log("Edit Tour GET DB Connect Error: " . $conn->connect_error); }
-        else { $sql_fetch = "SELECT * FROM tours WHERE id = ?"; $stmt_fetch = $conn->prepare($sql_fetch);
-            if ($stmt_fetch) { $stmt_fetch->bind_param("i", $tourId); $stmt_fetch->execute(); $result_fetch = $stmt_fetch->get_result();
-                if ($result_fetch && $result_fetch->num_rows === 1) { $tour = $result_fetch->fetch_assoc(); $pageTitle = "Edit Tour: " . htmlspecialchars($tour['name']); /* Set specific title */ }
-                else { $pageError = "Tour with ID " . $tourId . " not found."; } $stmt_fetch->close();
-            } else { $pageError = "Error preparing query: " . $conn->error; error_log("Edit Tour GET Prepare Error: " . $conn->error); } $conn->close();
+        if ($conn->connect_error) {
+            $pageError = "Database connection failed: " . $conn->connect_error;
+            error_log("Edit Tour GET DB Connect Error: " . $conn->connect_error);
+        } else {
+            $sql_fetch = "SELECT * FROM tours WHERE id = ?";
+            $stmt_fetch = $conn->prepare($sql_fetch);
+            if ($stmt_fetch) {
+                $stmt_fetch->bind_param("i", $tourId);
+                if (!$stmt_fetch->execute()) {
+                    // Check execute error
+                    $pageError = "Error executing fetch query: " . $stmt_fetch->error;
+                    error_log("Edit Tour Execute Error: " . $stmt_fetch->error);
+                } else {
+                    $result_fetch = $stmt_fetch->get_result();
+                    if (!$result_fetch) {
+                         // Check get_result error
+                         $pageError = "Error getting result set: " . $conn->error;
+                         error_log("Edit Tour Get Result Error: " . $conn->error);
+                    } elseif ($result_fetch->num_rows === 1) {
+                        $row_data = $result_fetch->fetch_assoc(); // Fetch the raw row
+
+                        // --- DEBUG 1: Dump raw fetched row immediately ---
+                        echo '<div style="background-color: #ffc; border: 1px solid #999; padding: 10px; margin: 15px; font-size: 12px;">';
+                        echo '<strong>DEBUG 1 - Raw Fetched Row Data:</strong><pre>';
+                        var_dump($row_data); // Dump the data exactly as fetched
+                        echo '</pre></div>';
+                        // --- END DEBUG 1 ---
+
+                        if ($row_data) {
+                             $tour = $row_data; // Assign to $tour
+                             $pageTitle = "Edit Tour: " . htmlspecialchars($tour['name']);
+                        } else {
+                             $pageError = "Failed to fetch row data after finding result.";
+                        }
+
+                    } else { // num_rows was 0 or > 1
+                        $pageError = "Tour with ID " . $tourId . " not found or multiple found.";
+                    }
+                    if ($result_fetch) $result_fetch->free();
+                }
+                $stmt_fetch->close();
+            } else {
+                $pageError = "Error preparing query: " . $conn->error;
+                error_log("Edit Tour GET Prepare Error: " . $conn->error);
+            }
+            $conn->close();
         }
     } // else $tour is already populated from failed POST data
 }
 
+// --- DEBUG 2: Dump $tour variable AFTER assignment (before form) ---
+// (This is the one you already have, keep it for comparison)
+echo '<div style="background-color: #eee; border: 1px solid #ccc; padding: 10px; margin-bottom: 15px; font-size: 12px;">';
+echo '<strong>DEBUG 2 - $tour variable before form:</strong><pre>';
+var_dump($tour);
+echo '</pre></div>';
+// --- END DEBUG 2 ---
 ?>
 
     <?php // Main content starts here ?>
@@ -198,6 +247,25 @@ if (!empty($errors)): ?>
 <?php endif; ?>
 
 <?php // --- Edit Tour Form --- ?>
+<?php // Display validation errors from POST submission if they exist
+            if (!empty($errors)): ?>
+                <div class="form-errors">
+                    <?php // ... error display code ... ?>
+                </div>
+            <?php endif; ?>
+
+            <?php
+                // --- DEBUGGING: Dump $tour variable ---
+                echo '<div style="background-color: #eee; border: 1px solid #ccc; padding: 10px; margin-bottom: 15px;">';
+                echo '<strong>DEBUGGING - $tour variable content:</strong><pre>';
+                var_dump($tour); // This will print the structure and content of the $tour array
+                echo '</pre></div>';
+                // --- END DEBUGGING ---
+            ?>
+
+            <?php // --- Edit Tour Form --- ?>
+            <form action="edit_tour.php?id=<?php echo htmlspecialchars($tour['id']); ?>" method="POST" class="data-form">
+                <?php // ... rest of the form ... ?>
 <form action="edit_tour.php?id=<?php echo htmlspecialchars($tour['id']); ?>" method="POST" enctype="multipart/form-data" class="data-form">
     <input type="hidden" name="tour_id" value="<?php echo htmlspecialchars($tour['id']); ?>">
 
