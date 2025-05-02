@@ -34,6 +34,7 @@ else {
 
         <h2>All Tour Bookings</h2>
         <div style="overflow-x:auto;">
+        <div class="admin-table-wrapper">
             <table class="admin-table">
                 <thead>
                     <tr>
@@ -70,6 +71,7 @@ else {
                     <?php endif; ?>
                 </tbody>
             </table>
+            </div>
         </div>
 
     </div> <?php // End content-box ?>

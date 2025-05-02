@@ -295,3 +295,181 @@ hr { border: none; border-top: 1px solid #e9ecef; margin: 25px 0; }
 .tour-item-details p.tour-price span.currency-symbol {
     display: none;
 }
+/* ======================================= */
+/* === Responsive Design Media Queries === */
+/* ======================================= */
+
+/* Medium Devices (Tablets, smaller desktops - <= 992px) */
+@media (max-width: 992px) {
+    .content-box {
+        max-width: 95%; /* Allow content box to be wider */
+        padding: 25px 30px;
+        margin-top: 25px;
+        margin-bottom: 25px;
+    }
+    .admin-page .content-box { max-width: 95%; } /* Let admin pages use more width */
+    h1 { font-size: 2em; }
+    h2 { font-size: 1.6em; }
+    h3 { font-size: 1.3em; }
+    h4 { font-size: 1.1em; }
+
+    /* Adjust flex layout on details page */
+    .tour-main-details-layout {
+        gap: 25px;
+    }
+    .tour-meta {
+        min-width: 180px; /* Allow slightly smaller meta */
+    }
+    .tour-description {
+         min-width: 250px;
+    }
+
+    /* Make admin table scroll */
+    .admin-table-wrapper { /* Ensure you wrap admin tables in this div */
+        overflow-x: auto;
+    }
+     /* Add this wrapper in admin/index.php and admin/view_bookings.php: */
+     /* <div class="admin-table-wrapper"> <table class="admin-table">...</table> </div> */
+
+    /* Adjust forecast items per row slightly */
+     .forecast-item {
+         min-width: 85px;
+         max-width: 100px;
+         padding: 10px 4px;
+     }
+}
+
+/* Small Devices (Portrait Tablets, Large Phones - <= 768px) */
+@media (max-width: 768px) {
+    body {
+        padding: 10px 0 0 0; /* Reduce body padding, remove side padding */
+        font-size: 15px; /* Slightly smaller base font */
+    }
+    .content-box {
+        max-width: 100%; /* Full width */
+        margin-left: 0;
+        margin-right: 0;
+        margin-top: 0;
+        padding: 20px 25px;
+        border-radius: 0; /* Remove radius for edge-to-edge feel */
+        border-left: none;
+        border-right: none;
+        box-shadow: none; /* Remove shadow */
+    }
+     .session-message {
+         max-width: 100%;
+         margin-left: 0;
+         margin-right: 0;
+         border-radius: 0;
+     }
+
+    h1 { font-size: 1.8em; margin-bottom: 25px;}
+    h2 { font-size: 1.5em; margin-bottom: 15px;}
+    h3 { font-size: 1.25em; margin-bottom: 12px;}
+    h4 { font-size: 1.05em; margin-bottom: 8px;}
+
+    /* Stack user status bar items */
+    .user-status-bar {
+        flex-direction: column; /* Stack left/right sections */
+        padding: 10px 15px;
+        text-align: center;
+        gap: 8px;
+    }
+    .user-status-bar div:last-child { margin-top: 5px; }
+    .user-status-bar a { margin: 0 8px; } /* Adjust link margin */
+    .user-status-bar.admin-nav-bar { flex-direction: row; flex-wrap: wrap; justify-content: center; } /* Keep admin bar links mostly inline */
+    .user-status-bar.admin-nav-bar div:last-child { margin-top: 0; }
+    .user-status-bar.admin-nav-bar a { font-size: 0.85em; padding: 4px 6px;}
+
+    /* Stack tour list item image and text */
+    .tour-item {
+        flex-direction: column; /* Stack image above text */
+        align-items: flex-start; /* Align items left */
+        padding: 15px;
+        gap: 15px;
+    }
+    .tour-image-container { width: 100%; text-align: center; }
+    .tour-list-image {
+        width: 100%; /* Make image full width */
+        max-width: 250px; /* But limit max width */
+        height: auto; /* Adjust height automatically */
+        margin-bottom: 10px;
+    }
+
+     /* Stack tour details meta and description */
+     .tour-main-details-layout {
+        flex-direction: column; /* Stack vertically */
+        gap: 20px;
+    }
+    .tour-meta {
+        border-right: none; /* Remove border if it was added */
+        padding-right: 0;
+        border-bottom: 1px dotted #ced4da; /* Add separator below */
+        padding-bottom: 15px;
+        margin-bottom: 15px;
+    }
+    .tour-description { padding-top: 0; }
+
+    /* Stack weather current section */
+    .weather-current {
+        flex-direction: column; /* Stack icon above text */
+        align-items: center; /* Center items */
+        gap: 10px;
+        text-align: center;
+    }
+    .weather-icon-current { margin: 0 0 10px 0; }
+    .weather-text-details p { text-align: center; }
+
+     /* Adjust forecast container/items */
+    .forecast-container { justify-content: center; gap: 8px;} /* Center items */
+    .forecast-item {
+        flex-basis: 45%; /* Roughly 2 items per row */
+        min-width: 110px; /* Increase min width a bit */
+    }
+
+     /* Forms */
+    .content-box.auth-page, .content-box.booking-page, .content-box.payment-page { padding: 25px; } /* Reduce padding */
+    .form-group input, .form-group textarea, .form-group select { padding: 10px 12px; }
+    .toggle-password { top: 68%; } /* Re-adjust if needed */
+    .submit-button, .payment-button, .book-now-button { padding: 10px 20px; font-size: 1em; }
+}
+
+/* Extra Small Devices (Phones - <= 576px) */
+@media (max-width: 576px) {
+    body { font-size: 14px; } /* Even smaller base font */
+     .content-box { padding: 15px 20px; }
+     .session-message { padding: 12px 15px; font-size: 0.9em;}
+     h1 { font-size: 1.6em; margin-bottom: 20px;}
+     h2 { font-size: 1.4em; }
+     h3 { font-size: 1.2em; }
+     h4 { font-size: 1em; }
+
+    /* Search */
+    .search-container { display: flex; flex-direction: column; gap: 10px;}
+    .search-container input[type="text"] { min-width: unset; width: 100%; border-radius: 20px;}
+    .search-container button[type="submit"] { width: 100%; border-radius: 20px; margin-left: 0; }
+    .search-container a { margin: 5px 0 0 0; }
+
+    /* Tour list */
+    .tour-item h2 { font-size: 1.2em; }
+    .tour-item p { font-size: 0.9em; }
+
+    /* Details page */
+    #tour-details-content .price { font-size: 1.3em; }
+    .available-dates ul { max-height: 100px; } /* Shorter scroll */
+
+    /* Weather */
+    #weather-info, #map-info { padding: 15px; }
+    .weather-current p { font-size: 0.95em; }
+    .forecast-container { justify-content: space-around; }
+    .forecast-item { flex-basis: 40%; min-width: 90px; } /* Still aim for ~2 per row */
+
+    /* Forms */
+     .auth-page .content-box, .booking-page .content-box, .payment-page .content-box { padding: 20px; }
+     .form-group input, .form-group textarea, .form-group select { padding: 10px; }
+     .toggle-password { top: 65%; } /* Further adjust */
+
+     /* Admin table - ensure wrapper exists */
+     .admin-table th, .admin-table td { padding: 6px 8px; font-size: 0.85em; }
+     .admin-table td a { padding: 2px 5px; }
+}

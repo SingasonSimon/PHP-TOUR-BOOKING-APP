@@ -44,6 +44,7 @@ if ($conn->connect_error) {
 
         <h2>Existing Tours</h2>
         <div style="overflow-x:auto;">
+        <div class="admin-table-wrapper">
             <table class="admin-table">
                 <thead>
                     <tr>
@@ -73,6 +74,7 @@ if ($conn->connect_error) {
                     <?php endif; ?>
                 </tbody>
             </table>
+            </div>
         </div> <?php // End responsive wrapper ?>
     </div> <?php // End content-box ?>
 
