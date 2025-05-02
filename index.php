@@ -26,48 +26,45 @@ if ($conn->connect_error) {
     error_log("Index DB Connect Error: " . $conn->connect_error);
 } else {
     // --- Build SQL Query with Search (including image_filename) ---
-    $sql = "SELECT id, name, location_city, price, image_filename FROM tours"; // Added image_filename
+    $sql = "SELECT id, name, location_city, price, image_filename FROM tours"; // Select image_filename
     $params = []; // Array to hold parameters for binding
     $types = "";  // String for bind_param types
 
     if (!empty($searchTerm)) {
-        // Add WHERE clause if search term exists
         $sql .= " WHERE name LIKE ? OR location_city LIKE ?";
-        $likeTerm = "%" . $searchTerm . "%"; // Prepare term for LIKE search
-        // Add params and types for prepared statement
-        $params[] = $likeTerm;
-        $params[] = $likeTerm;
-        $types .= "ss"; // Two string parameters
+        $likeTerm = "%" . $searchTerm . "%";
+        $params[] = &$likeTerm; // Pass by reference needed before PHP 8.1
+        $params[] = &$likeTerm;
+        $types .= "ss";
     }
     $sql .= " ORDER BY name ASC";
 
     // --- Prepare and Execute Statement ---
     $stmt = $conn->prepare($sql);
     if ($stmt) {
-        // Bind parameters if they exist
         if (!empty($params)) {
             $stmt->bind_param($types, ...$params);
         }
         $stmt->execute();
-        $result = $stmt->get_result(); // Get result object
+        $result = $stmt->get_result();
 
         if ($result) {
             if ($result->num_rows > 0) {
                 while ($row = $result->fetch_assoc()) {
-                    $tours[] = $row; // Add tour row to the array
+                    $tours[] = $row;
                 }
             }
-            $result->free(); // Free result set
+            $result->free();
         } else {
              $dbError = "Error fetching tours: " . $stmt->error;
              error_log("Index Fetch Error: " . $stmt->error);
         }
-        $stmt->close(); // Close the statement
+        $stmt->close();
     } else {
         $dbError = "Error preparing database query: " . $conn->error;
         error_log("Index Prepare Error: " . $conn->error);
     }
-    $conn->close(); // Close the connection
+    $conn->close();
 }
 
 ?>
@@ -77,7 +74,7 @@ if ($conn->connect_error) {
 
         <h1>Available Tours</h1>
 
-        <?php // Search Form ?>
+        <?php // Search Form (remains the same) ?>
         <div class="search-container">
            <form action="index.php" method="GET" style="display: inline-block;">
                 <input type="text" name="search_term" placeholder="Search by name or location..." value="<?php echo htmlspecialchars($searchTerm); ?>">
@@ -107,27 +104,42 @@ if ($conn->connect_error) {
                     <li class="tour-item"> <?php // Styled with Flexbox in style.css ?>
                         <?php // Image Container (Flex Item 1) ?>
                         <div class="tour-image-container">
-                            <?php // Display image or placeholder ?>
                             <?php
-                                $imagePath = "uploads/" . htmlspecialchars($tour['image_filename'] ?? '');
-                                $placeholderPath = "images/safari-ke.jpeg"; // Define placeholder path
-                                $finalImagePath = (!empty($tour['image_filename']) && file_exists($imagePath)) ? $imagePath : $placeholderPath;
+                                // --- CORRECTED IMAGE LOGIC ---
+                                $imageFilename = $tour['image_filename'] ?? null;
+                                $imagePath = null;
+                                $placeholderPath = "uploads/placeholder.png"; // CORRECT placeholder path
+
+                                // Check if a specific image exists for the tour
+                                if (!empty($imageFilename)) {
+                                    $potentialPath = "uploads/" . $imageFilename; // CORRECT folder
+                                    if (file_exists($potentialPath)) {
+                                        $imagePath = $potentialPath;
+                                    }
+                                }
+
+                                // Use the tour image if found, otherwise use the placeholder
+                                $finalImagePath = $imagePath ?: $placeholderPath;
+                                // Check if we are actually using the placeholder path
+                                $isPlaceholder = ($finalImagePath === $placeholderPath);
+
                             ?>
-                            <img src="<?php echo $finalImagePath; ?>"
-                                 alt="<?php echo (!empty($tour['image_filename']) && file_exists($imagePath)) ? htmlspecialchars($tour['name']) : 'Placeholder'; ?>"
-                                 class="tour-list-image <?php echo (!empty($tour['image_filename']) && file_exists($imagePath)) ? '' : 'placeholder'; ?>">
+                            <img src="<?php echo htmlspecialchars($finalImagePath); ?>"
+                                 alt="<?php echo $isPlaceholder ? 'Placeholder' : htmlspecialchars($tour['name']); ?>"
+                                 class="tour-list-image <?php echo $isPlaceholder ? 'placeholder' : ''; ?>"
+                                 <?php // Add basic error handling for broken images ?>
+                                 onerror="this.onerror=null; this.src='<?php echo $placeholderPath; ?>'; this.classList.add('placeholder'); this.alt='Placeholder';" >
                         </div>
 
                         <?php // Details Container (Flex Item 2) ?>
                         <div class="tour-item-details">
                              <h2><a href="tour_details.php?id=<?php echo htmlspecialchars($tour['id']); ?>"><?php echo htmlspecialchars($tour['name']); ?></a></h2>
-                             <p class="tour-location"> <?php // Styled via CSS ?>
+                             <p class="tour-location">
                                  <?php echo htmlspecialchars($tour['location_city']); ?>
                              </p>
-                             <p class="tour-price"> <?php // Styled via CSS ?>
+                             <p class="tour-price">
                                  <span class="currency-symbol">KES</span> <?php echo htmlspecialchars(number_format($tour['price'], 2)); ?>
                              </p>
-                             <?php // Can add description snippet here later ?>
                         </div>
                     </li>
                 <?php endforeach; ?>

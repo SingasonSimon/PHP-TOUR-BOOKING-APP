@@ -1,106 +1,131 @@
 <?php
 // tour_app/admin/add_tour.php
-$pageTitle = "Add New Tour"; // Set page title
+$pageTitle = "Add New Tour";
 require_once 'includes/admin_header.php'; // Includes admin check, head, nav etc.
 
 // --- DB Config ---
 define('DB_HOST', 'localhost'); define('DB_USER', 'root'); define('DB_PASS', ''); define('DB_NAME', 'tour_booking_db');
 
 $errors = []; // Array to hold validation errors
+
 // --- Fetch Categories for Dropdown ---
 $categories = [];
 $conn_cat = new mysqli(DB_HOST, DB_USER, DB_PASS, DB_NAME);
 if (!$conn_cat->connect_error) {
     $sql_cat = "SELECT id, name FROM categories ORDER BY name ASC";
     $result_cat = $conn_cat->query($sql_cat);
-    if ($result_cat) {
-        while ($row_cat = $result_cat->fetch_assoc()) {
-            $categories[] = $row_cat;
-        }
-        $result_cat->free();
-    } else {
-        // Handle error fetching categories if needed
-         if(empty($errors) && empty($pageError)) { // Only show error if no other errors present
-             $errors[] = "Could not load tour categories.";
-         }
-         error_log("Fetch Categories Error: " . $conn_cat->error);
-    }
+    if ($result_cat) { while ($row_cat = $result_cat->fetch_assoc()) { $categories[] = $row_cat; } $result_cat->free(); }
+    else { error_log("Fetch Categories Error: " . $conn_cat->error); $errors[] = "Could not load categories."; }
     $conn_cat->close();
-} // else: connection error already handled perhaps
+} else { $errors[] = "Category DB connection failed.";} // Add error if connection fails
+
 // --- Handle Form Submission ---
 if ($_SERVER["REQUEST_METHOD"] == "POST") {
-    // 1. Get and Sanitize Text/Numeric Data
+
+    // 1. Get and Sanitize Data
     $name = trim(htmlspecialchars($_POST['name'] ?? ''));
-    // ... (get location, description, price, category, capacity, lat, lon as before) ...
-    $location_city = trim(htmlspecialchars($_POST['location_city'] ?? '')); $description = trim(htmlspecialchars($_POST['description'] ?? '')); $price_str = trim($_POST['price'] ?? ''); $categoryId = isset($_POST['category_id']) && !empty($_POST['category_id']) ? (int)$_POST['category_id'] : null; $capacity_str = trim($_POST['capacity'] ?? ''); $latitude_str = trim($_POST['latitude'] ?? ''); $longitude_str = trim($_POST['longitude'] ?? '');
-    $price = null; $capacity = null; $latitude = null; $longitude = null; $errors = [];
+    $location_city = trim(htmlspecialchars($_POST['location_city'] ?? ''));
+    $description = trim(htmlspecialchars($_POST['description'] ?? ''));
+    $price_str = trim($_POST['price'] ?? '');
+    $categoryId = isset($_POST['category_id']) && !empty($_POST['category_id']) ? (int)$_POST['category_id'] : null;
+    $capacity_str = trim($_POST['capacity'] ?? '');
+    $latitude_str = trim($_POST['latitude'] ?? '');
+    $longitude_str = trim($_POST['longitude'] ?? '');
+    // ** Get Initial Date **
+    $initialDate = trim($_POST['initial_date'] ?? '');
 
-    // 2. Validate Text/Numeric Data
-    // ... (keep existing validation logic for name, location, price, category, capacity, lat, lon) ...
-     if (empty($name)) { $errors[] = "Tour Name required."; } if (empty($location_city)) { $errors[] = "Location required."; } if ($price_str === '') { $errors[] = "Price required."; } elseif (!is_numeric($price_str) || (float)$price_str < 0) { $errors[] = "Price invalid."; } else { $price = (float)$price_str; } if ($categoryId !== null) { /* Optional: Validate category ID */ } if ($capacity_str !== '') { if (!ctype_digit($capacity_str)) { $errors[] = "Capacity invalid."; } else { $capacity = (int)$capacity_str; } } if ($latitude_str !== '') { if (!is_numeric($latitude_str) || $latitude_str < -90 || $latitude_str > 90) { $errors[] = "Latitude invalid."; } else { $latitude = (float)$latitude_str; } } if ($longitude_str !== '') { if (!is_numeric($longitude_str) || $longitude_str < -180 || $longitude_str > 180) { $errors[] = "Longitude invalid."; } else { $longitude = (float)$longitude_str; } }
+    // Initialize variables for DB
+    $price = null; $capacity = null; $latitude = null; $longitude = null;
+    $validatedInitialDate = null; // Store validated date or null
 
-    // 3. Handle Image Upload
-    $imageToSave = null; // Filename to save in DB (null if no upload/error)
-    $uploadDir = '../uploads/'; // Relative path from /admin/ to /uploads/
-    $allowedTypes = ['image/jpeg', 'image/png', 'image/gif'];
-    $maxFileSize = 5 * 1024 * 1024; // 5 MB
+    // 2. Validate Data
+    if (empty($name)) { $errors[] = "Tour Name is required."; }
+    if (empty($location_city)) { $errors[] = "Location City is required."; }
+    if ($price_str === '') { $errors[] = "Price is required."; } elseif (!is_numeric($price_str) || (float)$price_str < 0) { $errors[] = "Price must be a valid positive number."; } else { $price = (float)$price_str; }
+    if ($categoryId !== null) { $validCategoryIds = array_column($categories, 'id'); if (!in_array($categoryId, $validCategoryIds)) { $errors[] = "Invalid category selected."; } }
+    if ($capacity_str !== '') { if (!ctype_digit($capacity_str)) { $errors[] = "Capacity must be a valid whole number (or leave blank)."; } else { $capacity = (int)$capacity_str; } }
+    if ($latitude_str !== '') { if (!is_numeric($latitude_str) || $latitude_str < -90 || $latitude_str > 90) { $errors[] = "Latitude must be valid (-90 to 90) or blank."; } else { $latitude = (float)$latitude_str; } }
+    if ($longitude_str !== '') { if (!is_numeric($longitude_str) || $longitude_str < -180 || $longitude_str > 180) { $errors[] = "Longitude must be valid (-180 to 180) or blank."; } else { $longitude = (float)$longitude_str; } }
 
-    if (isset($_FILES['tour_image']) && $_FILES['tour_image']['error'] === UPLOAD_ERR_OK) {
-        $fileTmpPath = $_FILES['tour_image']['tmp_name'];
-        $fileName = $_FILES['tour_image']['name'];
-        $fileSize = $_FILES['tour_image']['size'];
-        $fileType = mime_content_type($fileTmpPath); // More reliable than $_FILES['type']
-        $fileNameCmps = explode(".", $fileName);
-        $fileExtension = strtolower(end($fileNameCmps));
-
-        if ($fileSize > $maxFileSize) {
-            $errors[] = "Image file is too large (Max: 5MB).";
-        } elseif (!in_array($fileType, $allowedTypes)) {
-            $errors[] = "Invalid image file type (Allowed: JPG, PNG, GIF).";
+    // ** Validate Initial Date (if provided) **
+    if (!empty($initialDate)) {
+        if (!preg_match("/^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[1-2][0-9]|3[0-1])$/", $initialDate)) {
+             $errors[] = "Invalid format for Initial Available Date (Use YYYY-MM-DD).";
+        } elseif (strtotime($initialDate) < strtotime(date('Y-m-d'))) {
+             $errors[] = "Initial Available Date cannot be in the past.";
         } else {
-            // Create a unique filename
-            $newFileName = uniqid('tour_', true) . '.' . $fileExtension;
-            $destPath = $uploadDir . $newFileName;
-
-            if (move_uploaded_file($fileTmpPath, $destPath)) {
-                $imageToSave = $newFileName; // Store only the filename
-            } else {
-                $errors[] = "Failed to move uploaded image.";
-                error_log("File upload move error for: " . $destPath);
-            }
+             $validatedInitialDate = $initialDate; // Store validated date
         }
-    } elseif (isset($_FILES['tour_image']) && $_FILES['tour_image']['error'] !== UPLOAD_ERR_NO_FILE && $_FILES['tour_image']['error'] !== UPLOAD_ERR_OK) {
-         // Handle other upload errors (permissions, partial upload etc.)
-         $errors[] = "Error uploading image. Code: " . $_FILES['tour_image']['error'];
-         error_log("File upload error code: " . $_FILES['tour_image']['error']);
     }
 
-    // 4. Insert into Database (if no validation or upload errors)
+    // 3. Insert into Database (if no validation errors)
     if (empty($errors)) {
         $conn = new mysqli(DB_HOST, DB_USER, DB_PASS, DB_NAME);
-        if ($conn->connect_error) { /* ... handle error ... */ }
-        else {
-            // *** SQL includes image_filename ***
-            $sql = "INSERT INTO tours (name, location_city, description, price, category_id, capacity, latitude, longitude, image_filename)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)"; // 9 placeholders
-            $stmt = $conn->prepare($sql);
-            if ($stmt) {
-                 // *** bind_param includes image_filename (s) ***
-                 // Types: s, s, s, d, i, i, d, d, s (9 types)
-                 $stmt->bind_param("sssdiidds",
-                     $name, $location_city, $description, $price, $categoryId,
-                     $capacity, $latitude, $longitude,
-                     $imageToSave // Will bind NULL if no valid image was uploaded
-                 );
-                 if ($stmt->execute()) {
-                     $_SESSION['admin_message'] = "Tour '" . htmlspecialchars($name) . "' added successfully!";
-                     header("Location: index.php"); exit;
-                 } else { /* ... handle error ... */ }
-                 $stmt->close();
-            } else { /* ... handle error ... */ }
+        if ($conn->connect_error) {
+            $errors[] = "Database connection failed: " . $conn->connect_error;
+            error_log("Add Tour DB Connect Error: " . $conn->connect_error);
+        } else {
+            $conn->begin_transaction(); // Start transaction
+            $tourAdded = false;
+            $newTourId = null;
+            $dateAddedSuccessfully = true; // Assume true unless date insert fails
+
+            try {
+                // Insert into tours table
+                $sql = "INSERT INTO tours (name, location_city, description, price, category_id, capacity, latitude, longitude, image_filename)
+                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, NULL)"; // Assume no image on initial add yet
+                $stmt = $conn->prepare($sql);
+                if (!$stmt) throw new Exception("DB Error (Prepare Tour): " . $conn->error);
+
+                // Types: s, s, s, d, i, i, d, d (8 params - category_id and capacity are nullable integers)
+                $stmt->bind_param("sssdiidd", // Adjusted type string
+                    $name, $location_city, $description, $price, $categoryId,
+                    $capacity, $latitude, $longitude
+                );
+
+                if (!$stmt->execute()) throw new Exception("DB Error (Execute Tour): " . $stmt->error);
+                $newTourId = $conn->insert_id; // Get the ID of the newly inserted tour
+                $stmt->close();
+                $tourAdded = true;
+
+                // Insert initial date if provided and valid
+                if ($validatedInitialDate !== null && $newTourId > 0) {
+                    $sql_date_insert = "INSERT INTO tour_dates (tour_id, tour_date, capacity_override) VALUES (?, ?, NULL)";
+                    $stmt_date = $conn->prepare($sql_date_insert);
+                    if ($stmt_date) {
+                        $stmt_date->bind_param("is", $newTourId, $validatedInitialDate);
+                        if (!$stmt_date->execute()) {
+                            // Date insert failed - log it, maybe set warning message, but don't stop commit?
+                            error_log("Failed to insert initial date for tour ID $newTourId: " . $stmt_date->error);
+                            $dateAddedSuccessfully = false; // Mark that date failed
+                        }
+                        $stmt_date->close();
+                    } else {
+                         error_log("Failed to prepare initial date insert for tour ID $newTourId: " . $conn->error);
+                         $dateAddedSuccessfully = false; // Mark that date failed
+                    }
+                }
+
+                // If we reach here without exceptions, commit
+                $conn->commit();
+
+                // Prepare success message (potentially with warning)
+                 $_SESSION['admin_message'] = "Tour '" . htmlspecialchars($name) . "' added successfully!";
+                 if (!$dateAddedSuccessfully && $validatedInitialDate !== null) {
+                     $_SESSION['admin_message'] .= " However, failed to add initial date.";
+                     $_SESSION['admin_message_type'] = 'warning';
+                 }
+                 header("Location: index.php"); // Redirect after success
+                 exit;
+
+            } catch (Exception $e) {
+                 $conn->rollback(); // Rollback on any error
+                 $errors[] = "Failed to add tour: " . $e->getMessage();
+                 error_log("Add Tour Transaction Error: " . $e->getMessage());
+            }
             $conn->close();
         }
-    } // End empty($errors) check
+    }
     // If errors occurred, script continues and redisplays form below...
 } // End POST handling
 ?>
@@ -113,41 +138,49 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         if (!empty($errors)): ?>
             <div class="form-errors">
                 <p><strong>Please fix the following issues:</strong></p>
-                <ul>
-                    <?php foreach ($errors as $error): ?>
-                        <li><?php echo $error; ?></li>
-                    <?php endforeach; ?>
-                </ul>
+                <ul><?php foreach ($errors as $error): ?><li><?php echo $error; ?></li><?php endforeach; ?></ul>
             </div>
         <?php endif; ?>
 
-        <?php // --- Add Tour Form --- ?>
+        <?php // Add Tour Form - includes enctype for future file uploads ?>
         <form action="add_tour.php" method="POST" enctype="multipart/form-data" class="data-form">
-            <?php // Form groups for name, location, description, price, capacity, lat, lon ?>
+            <?php // Name, Location, Description, Price fields... ?>
             <div class="form-group"><label for="name">Tour Name:</label><input type="text" id="name" name="name" value="<?php echo isset($_POST['name']) ? htmlspecialchars($_POST['name']) : ''; ?>" required></div>
             <div class="form-group"><label for="location_city">Location City:</label><input type="text" id="location_city" name="location_city" value="<?php echo isset($_POST['location_city']) ? htmlspecialchars($_POST['location_city']) : ''; ?>" required></div>
             <div class="form-group"><label for="description">Description:</label><textarea id="description" name="description" rows="5"><?php echo isset($_POST['description']) ? htmlspecialchars($_POST['description']) : ''; ?></textarea></div>
             <div class="form-group"><label for="price">Price (KES):</label><input type="number" id="price" name="price" step="0.01" min="0" value="<?php echo isset($_POST['price']) ? htmlspecialchars($_POST['price']) : ''; ?>" required></div>
+
+            <?php // Category Dropdown ?>
             <div class="form-group">
-            <label for="category_id">Category:</label>
-            <select name="category_id" id="category_id">
-                <option value="">-- Select Category (Optional) --</option>
-                <?php foreach ($categories as $category): ?>
-                    <option value="<?php echo htmlspecialchars($category['id']); ?>"
-                        <?php echo (isset($_POST['category_id']) && $_POST['category_id'] == $category['id']) ? 'selected' : ''; ?>>
-                        <?php echo htmlspecialchars($category['name']); ?>
-                    </option>
-                <?php endforeach; ?>
-            </select>
-        </div>
-        <div class="form-group">
-            <label for="tour_image">Tour Image:</label>
-            <input type="file" id="tour_image" name="tour_image" accept="image/jpeg, image/png, image/gif">
-            <small>Optional. Upload JPG, PNG, or GIF.</small>
-        </div>
+                <label for="category_id">Category:</label>
+                <select name="category_id" id="category_id">
+                    <option value="">-- Select Category (Optional) --</option>
+                    <?php foreach ($categories as $category): ?>
+                        <option value="<?php echo htmlspecialchars($category['id']); ?>" <?php echo (isset($_POST['category_id']) && $_POST['category_id'] == $category['id']) ? 'selected' : ''; ?>>
+                            <?php echo htmlspecialchars($category['name']); ?>
+                        </option>
+                    <?php endforeach; ?>
+                </select>
+            </div>
+
+            <?php // Capacity, Lat, Lon fields... ?>
             <div class="form-group"><label for="capacity">Capacity:</label><input type="number" id="capacity" name="capacity" min="0" value="<?php echo isset($_POST['capacity']) ? htmlspecialchars($_POST['capacity']) : ''; ?>"><small>Leave blank if no limit.</small></div>
             <div class="form-group"><label for="latitude">Latitude:</label><input type="text" id="latitude" name="latitude" value="<?php echo isset($_POST['latitude']) ? htmlspecialchars($_POST['latitude']) : ''; ?>"><small>Optional. E.g., -1.2833</small></div>
             <div class="form-group"><label for="longitude">Longitude:</label><input type="text" id="longitude" name="longitude" value="<?php echo isset($_POST['longitude']) ? htmlspecialchars($_POST['longitude']) : ''; ?>"><small>Optional. E.g., 36.8167</small></div>
+
+            <?php // --- ADDED: Initial Available Date --- ?>
+            <div class="form-group">
+                <label for="initial_date">Initial Available Date (Optional):</label>
+                <input type="date" id="initial_date" name="initial_date" min="<?php echo date('Y-m-d'); ?>" value="<?php echo isset($_POST['initial_date']) ? htmlspecialchars($_POST['initial_date']) : ''; ?>">
+                <small>Add one starting date to make this tour bookable immediately.</small>
+            </div>
+
+            <?php // --- File Upload (Keep for consistency, handle in POST) --- ?>
+            <div class="form-group">
+                 <label for="tour_image">Tour Image:</label>
+                 <input type="file" id="tour_image" name="tour_image" accept="image/jpeg, image/png, image/gif">
+                 <small>Optional. Upload JPG, PNG, or GIF (Max 5MB).</small>
+            </div>
 
             <div class="form-group form-actions">
                 <button type="submit" class="submit-button">Add Tour</button>

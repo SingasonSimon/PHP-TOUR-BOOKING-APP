@@ -241,6 +241,10 @@ hr { border: none; border-top: 1px solid #e9ecef; margin: 25px 0; }
     border: none; /* No border */
     box-shadow: 0 1px 3px rgba(0,0,0,0.1); /* Add shadow */
 }
+/* .tour-list-image.placeholder { /* Style if using placeholder */
+    /* object-fit: contain; Don't crop placeholder */
+    /* background-color: #f0f0f0; */
+/* } * */
 
 
 /* Text details container */
